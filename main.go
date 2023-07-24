@@ -20,7 +20,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	outStream, err := os.Open(outputFileName)
+	
+	outStream, err := os.Create(outputFileName)
 	if err != nil {
 		panic(err)
 	}
@@ -35,6 +36,6 @@ func main() {
 	yaml.NewEncoder(outStream).Encode(outSpec)
 }
 
-func transform(in map[string]interface{})map[string]interface{}{
+func transform(in map[string]interface{}) map[string]interface{} {
 	return in
 }
