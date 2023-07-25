@@ -15,7 +15,17 @@ var schemaPaths = []string{
 	".paths.*.*.responses.*.content.*.schema",
 }
 
+type objectPath struct {
+	object Object
+	path   Path
+}
+
 type Object = map[interface{}]interface{}
+type Path = []string
+
+func NewPath(path string) Path{
+	return strings.Split(strings.TrimPrefix(path, "."), ".")
+}
 
 func main() {
 	if len(os.Args) != 3 {
@@ -49,28 +59,28 @@ func main() {
 func transform(in Object) Object {
 	requests := FindPath(schemaPaths[0], in)
 	responses := FindPath(schemaPaths[1], in)
-	fmt.Printf("Found %d request schema\n", len(requests) )
-	fmt.Printf("Found %d response schema\n", len(responses) )
+	fmt.Printf("Found %d request schema\n", len(requests))
+	fmt.Printf("Found %d response schema\n", len(responses))
 	return in
 }
 
-
-func FindPath(path string, spec Object) []Object {
+func FindPath(path string, spec Object) []objectPath {
 	path = strings.TrimPrefix(path, ".")
-	return _findPath(strings.Split(path, "."), spec)
+	return _findPath(NewPath(path), spec, nil)
 }
 
-func _findPath(path []string, val Object) []Object {
-	if len(path)==0{
-		return []Object{val}
+func _findPath(path Path, val Object, parent Path) []objectPath {
+	if len(path) == 0 {
+		return []objectPath{ { object:val, path:parent } }
 	}
 	switch path[0] {
 	case "*":
-		ret := []Object{}
-		for _, v := range val {
+		ret := []objectPath{}
+		for k, v := range val {
 			obj, ok := v.(Object)
 			if ok {
-				ret = append(ret, _findPath(path[1:], obj)...)
+				key := fmt.Sprintf("%v", k)
+				ret = append(ret, _findPath(path[1:], obj, append(parent, key))...)
 			}
 		}
 		return ret
@@ -79,7 +89,7 @@ func _findPath(path []string, val Object) []Object {
 		if ok {
 			obj, ok := v.(Object)
 			if ok {
-				return _findPath(path[1:], obj)
+				return _findPath(path[1:], obj, append(parent, path[0]))
 			}
 		}
 		return nil

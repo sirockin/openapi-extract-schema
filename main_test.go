@@ -9,7 +9,7 @@ func TestFindPath(t *testing.T) {
 	tests := map[string]struct {
 		path string
 		spec Object
-		want []Object
+		want []objectPath
 	}{
 		"default": {
 			path: ".paths.*.requestBody.*.schema",
@@ -29,12 +29,17 @@ func TestFindPath(t *testing.T) {
 					},
 				},
 			},
-			want: []Object{{
-				"dave": Object{
-					"lastName": "sirockin",
-					"legs":     2,
+			want: []objectPath{
+				{
+					object: Object{
+						"dave": Object{
+							"lastName": "sirockin",
+							"legs":     2,
+						},
+					},
+					path: Path{"paths", "foo", "requestBody", "bar", "schema" },
 				},
-			}},
+			},
 		},
 	}
 	for name, tt := range tests {
