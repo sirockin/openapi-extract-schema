@@ -20,10 +20,21 @@ type objectPath struct {
 	path   Path
 }
 
-type Object = map[interface{}]interface{}
-type Path = []string
+func (p Path) generateSchemaName() string {
+	var sb strings.Builder
+	for _, v := range p {
+		sb.WriteString(v)
+	}
+	return sb.String()
+}
 
-func NewPath(path string) Path{
+type (
+	Object map[interface{}]interface{}
+	Spec   struct{ Object }
+	Path   []string
+)
+
+func NewPath(path string) Path {
 	return strings.Split(strings.TrimPrefix(path, "."), ".")
 }
 
@@ -46,52 +57,83 @@ func main() {
 		panic(err)
 	}
 
-	spec := Object{}
-	err = yaml.NewDecoder(inStream).Decode(&spec)
+	spec := Spec{}
+	err = yaml.NewDecoder(inStream).Decode(&spec.Object)
 	if err != nil {
 		panic(err)
 	}
 
-	outSpec := transform(spec)
-	yaml.NewEncoder(outStream).Encode(outSpec)
+	outSpec := spec.Transform()
+	yaml.NewEncoder(outStream).Encode(outSpec.Object)
 }
 
-func transform(in Object) Object {
-	requests := FindPath(schemaPaths[0], in)
-	responses := FindPath(schemaPaths[1], in)
+func (s Spec) Transform() Spec {
+	requests := s.FindPath(schemaPaths[0])
+	responses := s.FindPath(schemaPaths[1])
 	fmt.Printf("Found %d request schema\n", len(requests))
 	fmt.Printf("Found %d response schema\n", len(responses))
-	return in
+
+	all := append(requests, responses...)
+	for _, val := range all {
+		s.moveToSchemas(val)
+	}
+
+	return s
 }
 
-func FindPath(path string, spec Object) []objectPath {
+func (s Spec) FindPath(path string) []objectPath {
 	path = strings.TrimPrefix(path, ".")
-	return _findPath(NewPath(path), spec, nil)
+	return s.Object.findPath(NewPath(path), nil)
 }
 
-func _findPath(path Path, val Object, parent Path) []objectPath {
+func (o Object) findPath(path Path, parent Path) []objectPath {
 	if len(path) == 0 {
-		return []objectPath{ { object:val, path:parent } }
+		return []objectPath{{object: o, path: parent}}
 	}
 	switch path[0] {
 	case "*":
 		ret := []objectPath{}
-		for k, v := range val {
+		for k, v := range o {
 			obj, ok := v.(Object)
 			if ok {
 				key := fmt.Sprintf("%v", k)
-				ret = append(ret, _findPath(path[1:], obj, append(parent, key))...)
+				ret = append(ret, obj.findPath(path[1:], append(parent, key))...)
 			}
 		}
 		return ret
 	default:
-		v, ok := val[path[0]]
+		v, ok := o[path[0]]
 		if ok {
 			obj, ok := v.(Object)
 			if ok {
-				return _findPath(path[1:], obj, append(parent, path[0]))
+				return obj.findPath(path[1:], append(parent, path[0]))
 			}
 		}
 		return nil
 	}
+}
+
+func (s Spec) schemasNode() Object {
+	return s.Object.getOrCreateChildObject("components").
+		getOrCreateChildObject("schemas")
+}
+
+func (o Object) getOrCreateChildObject(name string) Object {
+	r, ok := o[name]
+	if !ok {
+		ret := Object{}
+		o[name] = ret
+		return ret
+	}
+
+	ret, ok := r.(Object)
+	if !ok {
+		panic(fmt.Errorf("%s is not object", name))
+	}
+	return ret
+}
+
+func (s Spec) moveToSchemas(objPath objectPath) {
+	name := objPath.path.generateSchemaName()
+	s.schemasNode()[name] = objPath.object
 }
