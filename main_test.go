@@ -54,3 +54,22 @@ func TestFindPath(t *testing.T) {
 		})
 	}
 }
+
+func Test_generateSchemaNameFromRequest(t *testing.T) {
+	tests := map[string]struct {
+		in   Path
+		want string
+	}{
+		"default": {
+			in:   Path{"paths", "/v2/foo", "POST"},
+			want: "postV2FooRequest",
+		},
+	}
+	for k, tt := range tests {
+		t.Run(k, func(t *testing.T) {
+			if got := tt.in.generateSchemaNameFromRequest(); got != tt.want {
+				t.Errorf("sanitizeURLPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

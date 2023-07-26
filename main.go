@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v2"
 )
 
@@ -20,10 +22,32 @@ type objectPath struct {
 	path   Path
 }
 
-func (p Path) generateSchemaName() string {
+func (p Path) generateSchemaNameFromRequest() string {
 	var sb strings.Builder
-	for _, v := range p {
-		sb.WriteString(v)
+	// Write the verb as prefix
+	sb.WriteString(strings.ToLower(p[2]))
+	sb.WriteString(sanitizeURLPath(p[1]))
+	sb.WriteString("Request")
+	return sb.String()
+}
+
+func (p Path) generateSchemaNameFromResponse() string {
+	var sb strings.Builder
+	// Write the verb as prefix
+	sb.WriteString(strings.ToLower(p[2]))
+	sb.WriteString(sanitizeURLPath(p[1]))
+	sb.WriteString("Response")
+	// Write the response
+	sb.WriteString(toTitle(p[6]))
+	return sb.String()
+}
+
+func sanitizeURLPath(in string) string {
+	in = strings.Trim(in, "/")
+	vals := strings.Split(in, "/")
+	var sb strings.Builder
+	for _, v := range vals {
+		sb.WriteString(toTitle(v))
 	}
 	return sb.String()
 }
@@ -64,7 +88,10 @@ func main() {
 	}
 
 	outSpec := spec.Transform()
-	yaml.NewEncoder(outStream).Encode(outSpec.Object)
+	err = yaml.NewEncoder(outStream).Encode(outSpec.Object)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (s Spec) Transform() Spec {
@@ -73,9 +100,11 @@ func (s Spec) Transform() Spec {
 	fmt.Printf("Found %d request schema\n", len(requests))
 	fmt.Printf("Found %d response schema\n", len(responses))
 
-	all := append(requests, responses...)
-	for _, val := range all {
-		s.moveToSchemas(val)
+	for _, val := range requests {
+		s.moveToSchemas(val, val.path.generateSchemaNameFromRequest())
+	}
+	for _, val := range responses {
+		s.moveToSchemas(val, val.path.generateSchemaNameFromResponse())
 	}
 
 	return s
@@ -133,7 +162,10 @@ func (o Object) getOrCreateChildObject(name string) Object {
 	return ret
 }
 
-func (s Spec) moveToSchemas(objPath objectPath) {
-	name := objPath.path.generateSchemaName()
+func (s Spec) moveToSchemas(objPath objectPath, name string) {
 	s.schemasNode()[name] = objPath.object
+}
+
+func toTitle(in string) string {
+	return cases.Title(language.English).String(in)
 }
