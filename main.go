@@ -122,16 +122,23 @@ func (s Spec) Transform() Spec {
 func GroupObjects(objects []ObjectWithPath) []ObjectWithPaths {
 	ret := []ObjectWithPaths{}
 	for _, obj := range objects {
-		for _, owp := range ret {
-			// TODO: perhaps exclude stuff like 'description' from comparison
-			if reflect.DeepEqual(owp.object, obj.object) {
-				owp.paths = append(owp.paths, obj.path)
-			}
-			continue
+		if idx := findMatchingObjectWithPaths(obj.object, ret); idx >= 0 {
+			ret[idx].paths = append(ret[idx].paths, obj.path)
+		}else{
+			ret = append(ret, ObjectWithPaths{object: obj.object, paths: []Path{obj.path}})
 		}
-		ret = append(ret, ObjectWithPaths{object: obj.object, paths: []Path{obj.path}})
 	}
 	return ret
+}
+
+func findMatchingObjectWithPaths(object Object, list []ObjectWithPaths)int{
+	for i, owp := range list {
+		// TODO: perhaps exclude stuff like 'description' from comparison
+		if reflect.DeepEqual(owp.object, object) {
+			return i
+		}
+	}
+	return -1
 }
 
 func (s Spec) FindPath(path string) []ObjectWithPath {

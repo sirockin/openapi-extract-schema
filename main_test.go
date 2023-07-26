@@ -128,6 +128,40 @@ func TestGroupObjects(t *testing.T) {
 				},
 			},
 		},
+		"different objects": {
+			in: []ObjectWithPath{
+				{
+					object: Object{
+						"foo": "bar",
+					},
+					path: Path{"a", "b", "c"},
+				},
+				{
+					object: Object{
+						"foo": "ping",
+					},
+					path: Path{"d", "e", "f"},
+				},
+			},
+			want: []ObjectWithPaths{
+				{
+					object: Object{
+						"foo": "bar",
+					},
+					paths: []Path{
+						{"a", "b", "c"},
+					},
+				},
+				{
+					object: Object{
+						"foo": "ping",
+					},
+					paths: []Path{
+						{"d", "e", "f"},
+					},
+				},				
+			},
+		},		
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
