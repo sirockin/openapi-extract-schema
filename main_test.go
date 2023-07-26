@@ -9,7 +9,7 @@ func TestFindPath(t *testing.T) {
 	tests := map[string]struct {
 		path string
 		spec Spec
-		want []objectPath
+		want []ObjectWithPath
 	}{
 		"default": {
 			path: ".paths.*.*.requestBody.*.schema",
@@ -33,7 +33,7 @@ func TestFindPath(t *testing.T) {
 					},
 				},
 			},
-			want: []objectPath{
+			want: []ObjectWithPath{
 				{
 					object: Object{
 						"dave": Object{
@@ -69,6 +69,70 @@ func Test_generateSchemaNameFromRequest(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			if got := tt.in.generateSchemaNameFromRequest(); got != tt.want {
 				t.Errorf("sanitizeURLPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGroupObjects(t *testing.T) {
+	tests := map[string]struct {
+		in   []ObjectWithPath
+		want []ObjectWithPaths
+	}{
+		"empty list": {
+			in:   []ObjectWithPath{},
+			want: []ObjectWithPaths{},
+		},
+		"single object": {
+			in: []ObjectWithPath{
+				{
+					object: Object{
+						"foo": "bar",
+					},
+					path: Path{"a", "b", "c"},
+				},
+			},
+			want: []ObjectWithPaths{
+				{
+					object: Object{
+						"foo": "bar",
+					},
+					paths: []Path{{"a", "b", "c"}},
+				},
+			},
+		},
+		"identical objects": {
+			in: []ObjectWithPath{
+				{
+					object: Object{
+						"foo": "bar",
+					},
+					path: Path{"a", "b", "c"},
+				},
+				{
+					object: Object{
+						"foo": "bar",
+					},
+					path: Path{"d", "e", "f"},
+				},
+			},
+			want: []ObjectWithPaths{
+				{
+					object: Object{
+						"foo": "bar",
+					},
+					paths: []Path{
+						{"a", "b", "c"},
+						{"d", "e", "f"},
+					},
+				},
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := GroupObjects(tt.in); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GroupObjects() = %v, want %v", got, tt.want)
 			}
 		})
 	}

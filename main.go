@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
 	"golang.org/x/text/cases"
@@ -17,9 +18,14 @@ var schemaPaths = []string{
 	".paths.*.*.responses.*.content.*.schema",
 }
 
-type objectPath struct {
+type ObjectWithPath struct {
 	object Object
 	path   Path
+}
+
+type ObjectWithPaths struct {
+	object Object
+	paths  []Path
 }
 
 func (p Path) generateSchemaNameFromRequest() string {
@@ -96,32 +102,50 @@ func main() {
 
 func (s Spec) Transform() Spec {
 	requests := s.FindPath(schemaPaths[0])
+	groupedRequests := GroupObjects(requests)
 	responses := s.FindPath(schemaPaths[1])
-	fmt.Printf("Found %d request schema\n", len(requests))
-	fmt.Printf("Found %d response schema\n", len(responses))
+	groupedResponses := GroupObjects(responses)
+	fmt.Printf("Found %d request schema in %d groups\n", len(requests), len(groupedRequests))
+	fmt.Printf("Found %d response schema in %d groups\n", len(responses), len(groupedResponses))
 
-	for _, val := range requests {
-		s.moveToSchemas(val, val.path.generateSchemaNameFromRequest())
-	}
-	for _, val := range responses {
-		s.moveToSchemas(val, val.path.generateSchemaNameFromResponse())
-	}
+
+	// for _, val := range requests {
+	// 	s.moveToSchemas(val, val.path.generateSchemaNameFromRequest())
+	// }
+	// for _, val := range responses {
+	// 	s.moveToSchemas(val, val.path.generateSchemaNameFromResponse())
+	// }
 
 	return s
 }
 
-func (s Spec) FindPath(path string) []objectPath {
+func GroupObjects(objects []ObjectWithPath) []ObjectWithPaths {
+	ret := []ObjectWithPaths{}
+	for _, obj := range objects {
+		for _, owp := range ret {
+			// TODO: perhaps exclude stuff like 'description' from comparison
+			if reflect.DeepEqual(owp.object, obj.object) {
+				owp.paths = append(owp.paths, obj.path)
+			}
+			continue
+		}
+		ret = append(ret, ObjectWithPaths{object: obj.object, paths: []Path{obj.path}})
+	}
+	return ret
+}
+
+func (s Spec) FindPath(path string) []ObjectWithPath {
 	path = strings.TrimPrefix(path, ".")
 	return s.Object.findPath(NewPath(path), nil)
 }
 
-func (o Object) findPath(path Path, parent Path) []objectPath {
+func (o Object) findPath(path Path, parent Path) []ObjectWithPath {
 	if len(path) == 0 {
-		return []objectPath{{object: o, path: parent}}
+		return []ObjectWithPath{{object: o, path: parent}}
 	}
 	switch path[0] {
 	case "*":
-		ret := []objectPath{}
+		ret := []ObjectWithPath{}
 		for k, v := range o {
 			obj, ok := v.(Object)
 			if ok {
@@ -162,7 +186,7 @@ func (o Object) getOrCreateChildObject(name string) Object {
 	return ret
 }
 
-func (s Spec) moveToSchemas(objPath objectPath, name string) {
+func (s Spec) moveToSchemas(objPath ObjectWithPath, name string) {
 	s.schemasNode()[name] = objPath.object
 }
 
