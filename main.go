@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
+	"unicode"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v2"
 )
 
-var schemaPaths = []string{
-	// paths/{path}/{verb}/requestBody/content/{content-type}/schema
-	".paths.*.*.requestBody.content.*.schema",
-	// paths/{path}/{verb}/responses/{statusCode}/content/{content-type}/schema
-	".paths.*.*.responses.*.content.*.schema",
-}
+const (
+	requestSearchPath  = ".paths.*.*.requestBody.content.*.schema"
+	responseSearchPath = ".paths.*.*.responses.*.content.*.schema"
+)
 
 type ObjectWithPath struct {
 	object Object
@@ -28,23 +28,23 @@ type ObjectWithPaths struct {
 	paths  []Path
 }
 
-func (p Path) generateSchemaNameFromRequest() string {
+func (owp ObjectWithPaths) requestSymbol() string {
 	var sb strings.Builder
-	// Write the verb as prefix
-	sb.WriteString(strings.ToLower(p[2]))
-	sb.WriteString(sanitizeURLPath(p[1]))
-	sb.WriteString("Request")
+	// // Write the verb as prefix
+	// sb.WriteString(strings.ToLower(p[2]))
+	// sb.WriteString(sanitizeURLPath(p[1]))
+	// sb.WriteString("Request")
 	return sb.String()
 }
 
-func (p Path) generateSchemaNameFromResponse() string {
+func (owp ObjectWithPaths) responseSymbol() string {
 	var sb strings.Builder
-	// Write the verb as prefix
-	sb.WriteString(strings.ToLower(p[2]))
-	sb.WriteString(sanitizeURLPath(p[1]))
-	sb.WriteString("Response")
-	// Write the response
-	sb.WriteString(toTitle(p[6]))
+	// // Write the verb as prefix
+	// sb.WriteString(strings.ToLower(p[2]))
+	// sb.WriteString(sanitizeURLPath(p[1]))
+	// sb.WriteString("Response")
+	// // Write the response
+	// sb.WriteString(toTitle(p[6]))
 	return sb.String()
 }
 
@@ -101,16 +101,16 @@ func main() {
 }
 
 func (s Spec) Transform() Spec {
-	requests := s.FindPath(schemaPaths[0])
+	requests := s.FindPath(requestSearchPath)
 	groupedRequests := GroupObjects(requests)
-	responses := s.FindPath(schemaPaths[1])
+	responses := s.FindPath(responseSearchPath)
 	groupedResponses := GroupObjects(responses)
 	fmt.Printf("Found %d request schema in %d groups\n", len(requests), len(groupedRequests))
 	fmt.Printf("Found %d response schema in %d groups\n", len(responses), len(groupedResponses))
 
-
-	// for _, val := range requests {
-	// 	s.moveToSchemas(val, val.path.generateSchemaNameFromRequest())
+	// for _, val := range groupedRequests {
+	// 	symbol := s.uniqueSymbol(val.requestSymbol())
+	// 	s.moveToSchemas(val, symbol)
 	// }
 	// for _, val := range responses {
 	// 	s.moveToSchemas(val, val.path.generateSchemaNameFromResponse())
@@ -119,19 +119,49 @@ func (s Spec) Transform() Spec {
 	return s
 }
 
+func (s Spec) uniqueSymbol(symbol string) string {
+	for s.symbolExists(symbol) {
+		symbol = nextSymbol(symbol)
+	}
+	return symbol
+}
+
+func (s Spec) symbolExists(symbol string) bool {
+	_, exists := s.schemasNode()[symbol]
+	return exists
+}
+
+func nextSymbol(symbol string) string {
+	sym := []rune(symbol)
+	var numDigits int
+	for numDigits = 0; unicode.IsDigit(sym[len(sym)-1-numDigits]); numDigits++ {
+	}
+	if numDigits == 0 {
+		return symbol + "2"
+	}
+	startIndex := len(sym)-(numDigits)
+	suffix := sym[startIndex:]
+	prefix := sym[:len(sym)-(numDigits)]
+	lastNum, err := strconv.Atoi(string(suffix))
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("%s%d", string(prefix), (lastNum+1) )
+}
+
 func GroupObjects(objects []ObjectWithPath) []ObjectWithPaths {
 	ret := []ObjectWithPaths{}
 	for _, obj := range objects {
 		if idx := findMatchingObjectWithPaths(obj.object, ret); idx >= 0 {
 			ret[idx].paths = append(ret[idx].paths, obj.path)
-		}else{
+		} else {
 			ret = append(ret, ObjectWithPaths{object: obj.object, paths: []Path{obj.path}})
 		}
 	}
 	return ret
 }
 
-func findMatchingObjectWithPaths(object Object, list []ObjectWithPaths)int{
+func findMatchingObjectWithPaths(object Object, list []ObjectWithPaths) int {
 	for i, owp := range list {
 		// TODO: perhaps exclude stuff like 'description' from comparison
 		if reflect.DeepEqual(owp.object, object) {
