@@ -57,24 +57,6 @@ func TestFindPath(t *testing.T) {
 	}
 }
 
-// func Test_generateSchemaNameFromRequest(t *testing.T) {
-// 	tests := map[string]struct {
-// 		in   Path
-// 		want string
-// 	}{
-// 		"default": {
-// 			in:   Path{"paths", "/v2/foo", "POST"},
-// 			want: "postV2FooRequest",
-// 		},
-// 	}
-// 	for k, tt := range tests {
-// 		t.Run(k, func(t *testing.T) {
-// 			if got := tt.in.generateSchemaNameFromRequest(); got != tt.want {
-// 				t.Errorf("sanitizeURLPath() = %v, want %v", got, tt.want)
-// 			}
-// 		})
-// 	}
-// }
 
 func TestGroupObjects(t *testing.T) {
 	tests := map[string]struct {
@@ -249,6 +231,20 @@ func TestObjectWithPaths_responseSymbol(t *testing.T) {
 			},
 			want: "PostV2Foo200Response",
 		},
+		"all except verb the same": {
+			paths: []Path{
+				{"paths", "/v2/foo", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
+				{"paths", "/v2/foo", "GET", "responses", "content", "application/json", "schema", "responses", "200"},
+			},
+			want: "CommonV2Foo200Response",
+		},		
+		"all except endpoint the same": {
+			paths: []Path{
+				{"paths", "/v2/foo", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
+				{"paths", "/v2/ping", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
+			},
+			want: "CommonPost200Response",
+		},		
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
