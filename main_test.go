@@ -3,6 +3,8 @@ package main
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFindPath(t *testing.T) {
@@ -174,22 +176,19 @@ func TestGroupObjects(t *testing.T) {
 
 func Test_nextSymbol(t *testing.T) {
 	tests := map[string]struct {
-		in string
+		in   string
 		want string
 	}{
-		"no suffix":
-		{
-			in: "Foo",
+		"no suffix": {
+			in:   "Foo",
 			want: "Foo2",
 		},
-		"suffix 1":
-		{
-			in: "Foo1",
+		"suffix 1": {
+			in:   "Foo1",
 			want: "Foo2",
 		},
-		"suffix another number":
-		{
-			in: "Foo999",
+		"suffix another number": {
+			in:   "Foo999",
 			want: "Foo1000",
 		},
 	}
@@ -198,6 +197,64 @@ func Test_nextSymbol(t *testing.T) {
 			if got := nextSymbol(tt.in); got != tt.want {
 				t.Errorf("nextSymbol() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestObjectWithPaths_requestSymbol(t *testing.T) {
+	// ".paths.*.*.requestBody.content.*.schema"
+	tests := map[string]struct {
+		paths Paths
+		want  string
+	}{
+		"single request body": {
+			paths: []Path{
+				{"paths", "/v2/foo", "POST", "requestBody", "content", "application/json", "schema"},
+			},
+			want: "PostV2FooRequest",
+		},
+		"common endpoint": {
+			paths: []Path{
+				{"paths", "/v2/foo", "POST", "requestBody", "content", "application/json", "schema"},
+				{"paths", "/v2/foo", "GET", "requestBody", "content", "application/json", "schema"},
+			},
+			want: "CommonV2FooRequest",
+		},
+		"common verb": {
+			paths: []Path{
+				{"paths", "/v2/foo", "POST", "requestBody", "content", "application/json", "schema"},
+				{"paths", "/v2/ping", "POST", "requestBody", "content", "application/json", "schema"},
+			},
+			want: "CommonPostRequest",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := tt.paths.requestSymbol()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestObjectWithPaths_responseSymbol(t *testing.T) {
+	// .paths.*.*.responses.*.content.*.schema	tests := map[string]struct {
+	tests := map[string]struct {
+			paths Paths
+		want  string
+	}{
+		"single response": {
+			paths: []Path{
+				{"paths", "/v2/foo", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
+			},
+			want: "PostV2Foo200Response",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := tt.paths.responseSymbol()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
