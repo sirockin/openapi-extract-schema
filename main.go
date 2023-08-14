@@ -18,6 +18,67 @@ const (
 	responseSearchPath = ".paths.*.*.responses.*.content.*.schema"
 )
 
+
+func main() {
+	if len(os.Args) != 3 {
+		fmt.Println("Usage: openapi-extract-schema {input-file} {output-file}")
+		return
+	}
+
+	inputFileName := os.Args[1]
+	outputFileName := os.Args[2]
+
+	inStream, err := os.Open(inputFileName)
+	if err != nil {
+		panic(err)
+	}
+
+	outStream, err := os.Create(outputFileName)
+	if err != nil {
+		panic(err)
+	}
+
+	spec := Spec{}
+	err = yaml.NewDecoder(inStream).Decode(&spec.Object)
+	if err != nil {
+		panic(err)
+	}
+
+	outSpec := spec.Transform()
+	err = yaml.NewEncoder(outStream).Encode(outSpec.Object)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (s Spec) Transform() Spec {
+	requests := s.FindPath(requestSearchPath)
+	groupedRequests := GroupObjects(requests)
+	responses := s.FindPath(responseSearchPath)
+	groupedResponses := GroupObjects(responses)
+	fmt.Printf("Found %d request schema in %d groups\n", len(requests), len(groupedRequests))
+	fmt.Printf("Found %d response schema in %d groups\n", len(responses), len(groupedResponses))
+
+	for _, val := range groupedRequests {
+		symbol, err := val.paths.requestSymbol()
+		if err != nil {
+			panic(err)
+		}
+		symbol = s.uniqueSymbol(symbol)
+		s.moveToSchemas(val, symbol)
+	}
+	for _, val := range groupedResponses {
+		symbol, err := val.paths.responseSymbol()
+		if err != nil {
+			panic(err)
+		}
+		symbol = s.uniqueSymbol(symbol)
+		s.moveToSchemas(val, symbol)
+	}
+	return s
+}
+
+
 type ObjectWithPath struct {
 	object Object
 	path   Path
@@ -49,7 +110,7 @@ func (ps Paths) responseSymbol() (string, error) {
 	if endpoint != "" {
 		parts = append(parts, sanitizeURLPath(endpoint))
 	}
-	statusCode, err := ps.commonStatusCodeValueAtIndex(8)
+	statusCode, err := ps.commonStatusCode()
 	if err != nil {
 		return "", err
 	}
@@ -113,7 +174,8 @@ func (ps Paths) commonValueAtIndex(idx int) (string, error) {
 	return ret, nil
 }
 
-func (ps Paths) commonStatusCodeValueAtIndex(idx int) (string, error) {
+func (ps Paths) commonStatusCode() (string, error) {
+	idx := 4
 	if len(ps) == 0 {
 		return "", fmt.Errorf("No paths found")
 	}
@@ -157,57 +219,6 @@ func NewPath(path string) Path {
 	return strings.Split(strings.TrimPrefix(path, "."), ".")
 }
 
-func main() {
-	if len(os.Args) != 3 {
-		fmt.Println("Usage: openapi-extract-schema {input-file} {output-file}")
-		return
-	}
-
-	inputFileName := os.Args[1]
-	outputFileName := os.Args[2]
-
-	inStream, err := os.Open(inputFileName)
-	if err != nil {
-		panic(err)
-	}
-
-	outStream, err := os.Create(outputFileName)
-	if err != nil {
-		panic(err)
-	}
-
-	spec := Spec{}
-	err = yaml.NewDecoder(inStream).Decode(&spec.Object)
-	if err != nil {
-		panic(err)
-	}
-
-	outSpec := spec.Transform()
-	err = yaml.NewEncoder(outStream).Encode(outSpec.Object)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (s Spec) Transform() Spec {
-	requests := s.FindPath(requestSearchPath)
-	groupedRequests := GroupObjects(requests)
-	responses := s.FindPath(responseSearchPath)
-	groupedResponses := GroupObjects(responses)
-	fmt.Printf("Found %d request schema in %d groups\n", len(requests), len(groupedRequests))
-	fmt.Printf("Found %d response schema in %d groups\n", len(responses), len(groupedResponses))
-
-	// for _, val := range groupedRequests {
-	// 	symbol := s.uniqueSymbol(val.requestSymbol())
-	// 	s.moveToSchemas(val, symbol)
-	// }
-	// for _, val := range responses {
-	// 	s.moveToSchemas(val, val.path.generateSchemaNameFromResponse())
-	// }
-
-	return s
-}
-
 func (s Spec) uniqueSymbol(symbol string) string {
 	for s.symbolExists(symbol) {
 		symbol = nextSymbol(symbol)
@@ -224,6 +235,7 @@ func nextSymbol(symbol string) string {
 	sym := []rune(symbol)
 	var numDigits int
 	for numDigits = 0; unicode.IsDigit(sym[len(sym)-1-numDigits]); numDigits++ {
+		fmt.Printf("numDigits: %d\n", numDigits)
 	}
 	if numDigits == 0 {
 		return symbol + "2"
@@ -312,7 +324,7 @@ func (o Object) getOrCreateChildObject(name string) Object {
 	return ret
 }
 
-func (s Spec) moveToSchemas(objPath ObjectWithPath, name string) {
+func (s Spec) moveToSchemas(objPath ObjectWithPaths, name string) {
 	s.schemasNode()[name] = objPath.object
 }
 

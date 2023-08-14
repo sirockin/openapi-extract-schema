@@ -227,28 +227,28 @@ func TestObjectWithPaths_responseSymbol(t *testing.T) {
 	}{
 		"single response": {
 			paths: []Path{
-				{"paths", "/v2/foo", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
+				{"paths", "/v2/foo", "POST", "responses", "200"},
 			},
 			want: "PostV2Foo200Response",
 		},
 		"all except verb the same": {
 			paths: []Path{
-				{"paths", "/v2/foo", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
-				{"paths", "/v2/foo", "GET", "responses", "content", "application/json", "schema", "responses", "200"},
+				{"paths", "/v2/foo", "POST", "responses", "200"},
+				{"paths", "/v2/foo", "GET", "responses", "200"},
 			},
 			want: "CommonV2Foo200Response",
 		},		
 		"all except endpoint the same": {
 			paths: []Path{
-				{"paths", "/v2/foo", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
-				{"paths", "/v2/ping", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
+				{"paths", "/v2/foo", "POST", "responses", "200"},
+				{"paths", "/v2/ping", "POST", "responses", "200"},
 			},
 			want: "CommonPost200Response",
 		},		
 		"all except response code suffix the same": {
 			paths: []Path{
-				{"paths", "/v2/ping", "POST", "responses", "content", "application/json", "schema", "responses", "201"},
-				{"paths", "/v2/ping", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
+				{"paths", "/v2/ping", "POST", "responses", "201"},
+				{"paths", "/v2/ping", "POST", "responses", "200"},
 			},
 			want: "PostV2Ping2xxResponse",
 		},		
