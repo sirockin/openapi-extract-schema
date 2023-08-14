@@ -5,23 +5,23 @@ import (
 	"testing"
 )
 
-func TestFindPath(t *testing.T) {
+func Test_findPath(t *testing.T) {
 	tests := map[string]struct {
 		path string
 		spec Spec
-		want []ObjectWithPath
+		want []objectWithPath
 	}{
 		"default": {
 			path: "$.paths.*.*.requestBody.*.schema",
 			spec: Spec{
-				Object{
-					"paths": Object{
-						"foo": Object{
-							"ping": Object{
-								"requestBody": Object{
-									"bar": Object{
-										"schema": Object{
-											"dave": Object{
+				object{
+					"paths": object{
+						"foo": object{
+							"ping": object{
+								"requestBody": object{
+									"bar": object{
+										"schema": object{
+											"dave": object{
 												"lastName": "sirockin",
 												"legs":     2,
 											},
@@ -33,28 +33,28 @@ func TestFindPath(t *testing.T) {
 					},
 				},
 			},
-			want: []ObjectWithPath{
+			want: []objectWithPath{
 				{
-					object: Object{
-						"dave": Object{
+					object: object{
+						"dave": object{
 							"lastName": "sirockin",
 							"legs":     2,
 						},
 					},
-					path: Path{"paths", "foo", "ping", "requestBody", "bar", "schema"},
+					path: _path{"paths", "foo", "ping", "requestBody", "bar", "schema"},
 				},
 			},
 		},
 		"specify attribute type": {
 			path: "$.components.schemas.*.[?(@type=='object')]",
 			spec: Spec{
-				Object{
-					"components": Object{
-						"schemas": Object{
-							"topLevel": Object{
+				object{
+					"components": object{
+						"schemas": object{
+							"topLevel": object{
 								"type": "object",
-								"properties": Object{
-									"name": Object{
+								"properties": object{
+									"name": object{
 										"type": "string",
 									},
 								},
@@ -63,37 +63,37 @@ func TestFindPath(t *testing.T) {
 					},
 				},
 			},
-			want: []ObjectWithPath{
+			want: []objectWithPath{
 				{
-					object: Object{
+					object: object{
 						"type": "object",
-						"properties": Object{
-							"name": Object{
+						"properties": object{
+							"name": object{
 								"type": "string",
 							},
 						},
 					},
-					path: Path{"components", "schemas", "topLevel"},
+					path: _path{"components", "schemas", "topLevel"},
 				},
 			},
 		},
 		"one level down specify attribute type": {
 			path: "$.components.schemas.*.*.*.[?(@type=='object')]",
 			spec: Spec{
-				Object{
-					"components": Object{
-						"schemas": Object{
-							"topLevel": Object{
+				object{
+					"components": object{
+						"schemas": object{
+							"topLevel": object{
 								"type": "object",
-								"properties": Object{
-									"name": Object{
+								"properties": object{
+									"name": object{
 										"type": "string",
 									},
-									"complex": Object{
+									"complex": object{
 										"type": "object",
-										"properties": Object{
+										"properties": object{
 											"foo": "bar",
-											"ping:": Object{
+											"ping:": object{
 												"whizz": "bang",
 											},
 										},
@@ -104,36 +104,36 @@ func TestFindPath(t *testing.T) {
 					},
 				},
 			},
-			want: []ObjectWithPath{
+			want: []objectWithPath{
 				{
-					object: Object{
+					object: object{
 						"type": "object",
-						"properties": Object{
+						"properties": object{
 							"foo": "bar",
-							"ping:": Object{
+							"ping:": object{
 								"whizz": "bang",
 							},
 						},
 					},
-					path: Path{"components", "schemas", "topLevel", "properties", "complex"},
+					path: _path{"components", "schemas", "topLevel", "properties", "complex"},
 				},
 			},
 		},
 		"arbitrary depth specify attribute type": {
 			path: "$.components.schemas.*.*..[?(@type=='object')]",
 			spec: Spec{
-				Object{
-					"components": Object{
-						"schemas": Object{
-							"topLevel": Object{
+				object{
+					"components": object{
+						"schemas": object{
+							"topLevel": object{
 								"type": "object",
-								"properties": Object{
-									"name": Object{
+								"properties": object{
+									"name": object{
 										"type": "string",
 									},
-									"complex": Object{
+									"complex": object{
 										"type": "object",
-										"properties": Object{
+										"properties": object{
 											"foo": "bar",
 										},
 									},
@@ -143,76 +143,76 @@ func TestFindPath(t *testing.T) {
 					},
 				},
 			},
-			want: []ObjectWithPath{
+			want: []objectWithPath{
 				{
-					object: Object{
+					object: object{
 						"type": "object",
-						"properties": Object{
+						"properties": object{
 							"foo": "bar",
 						},
 					},
-					path: Path{"components", "schemas", "topLevel", "properties", "complex"},
+					path: _path{"components", "schemas", "topLevel", "properties", "complex"},
 				},
 			},
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			if got := tt.spec.FindPath(tt.path); !reflect.DeepEqual(got, tt.want) {
+			if got := tt.spec.findStringPath(tt.path); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("FindPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestGroupObjects(t *testing.T) {
+func Test_groupObjects(t *testing.T) {
 	tests := map[string]struct {
-		in   []ObjectWithPath
-		want []ObjectWithPaths
+		in   []objectWithPath
+		want []objectWithPaths
 	}{
 		"empty list": {
-			in:   []ObjectWithPath{},
-			want: []ObjectWithPaths{},
+			in:   []objectWithPath{},
+			want: []objectWithPaths{},
 		},
 		"single object": {
-			in: []ObjectWithPath{
+			in: []objectWithPath{
 				{
-					object: Object{
+					object: object{
 						"foo": "bar",
 					},
-					path: Path{"a", "b", "c"},
+					path: _path{"a", "b", "c"},
 				},
 			},
-			want: []ObjectWithPaths{
+			want: []objectWithPaths{
 				{
-					object: Object{
+					object: object{
 						"foo": "bar",
 					},
-					paths: []Path{{"a", "b", "c"}},
+					paths: []_path{{"a", "b", "c"}},
 				},
 			},
 		},
 		"identical objects": {
-			in: []ObjectWithPath{
+			in: []objectWithPath{
 				{
-					object: Object{
+					object: object{
 						"foo": "bar",
 					},
-					path: Path{"a", "b", "c"},
+					path: _path{"a", "b", "c"},
 				},
 				{
-					object: Object{
+					object: object{
 						"foo": "bar",
 					},
-					path: Path{"d", "e", "f"},
+					path: _path{"d", "e", "f"},
 				},
 			},
-			want: []ObjectWithPaths{
+			want: []objectWithPaths{
 				{
-					object: Object{
+					object: object{
 						"foo": "bar",
 					},
-					paths: []Path{
+					paths: []_path{
 						{"a", "b", "c"},
 						{"d", "e", "f"},
 					},
@@ -220,34 +220,34 @@ func TestGroupObjects(t *testing.T) {
 			},
 		},
 		"different objects": {
-			in: []ObjectWithPath{
+			in: []objectWithPath{
 				{
-					object: Object{
+					object: object{
 						"foo": "bar",
 					},
-					path: Path{"a", "b", "c"},
+					path: _path{"a", "b", "c"},
 				},
 				{
-					object: Object{
+					object: object{
 						"foo": "ping",
 					},
-					path: Path{"d", "e", "f"},
+					path: _path{"d", "e", "f"},
 				},
 			},
-			want: []ObjectWithPaths{
+			want: []objectWithPaths{
 				{
-					object: Object{
+					object: object{
 						"foo": "bar",
 					},
-					paths: []Path{
+					paths: []_path{
 						{"a", "b", "c"},
 					},
 				},
 				{
-					object: Object{
+					object: object{
 						"foo": "ping",
 					},
-					paths: []Path{
+					paths: []_path{
 						{"d", "e", "f"},
 					},
 				},
@@ -256,7 +256,7 @@ func TestGroupObjects(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			if got := GroupObjects(tt.in); !reflect.DeepEqual(got, tt.want) {
+			if got := groupObjects(tt.in); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GroupObjects() = %v, want %v", got, tt.want)
 			}
 		})

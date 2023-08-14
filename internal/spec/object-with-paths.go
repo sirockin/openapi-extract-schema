@@ -1,6 +1,6 @@
 package spec
 
-type ObjectWithPaths struct {
-	object Object
-	paths  Paths
+type objectWithPaths struct {
+	object object
+	paths  paths
 }

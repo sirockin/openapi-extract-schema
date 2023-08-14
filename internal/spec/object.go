@@ -7,78 +7,78 @@ import (
 	"strconv"
 )
 
-type Object map[interface{}]interface{}
+type object map[interface{}]interface{}
 
-func (o Object) findPath(path Path, parent Path) []ObjectWithPath {
-	if len(path) == 0 {
-		return []ObjectWithPath{{object: o, path: parent}}
+func (o object) findPath(findPath _path, parentPath _path) []objectWithPath {
+	if len(findPath) == 0 {
+		return []objectWithPath{{object: o, path: parentPath}}
 	}
 	// from arbitrary depth '..'
-	if path[0] == "" {
-		ret := o.findPath(path[1:], parent)
+	if findPath[0] == "" {
+		ret := o.findPath(findPath[1:], parentPath)
 		for k, v := range o {
-			obj, ok := v.(Object)
+			obj, ok := v.(object)
 			if ok {
 				key := fmt.Sprintf("%v", k)
-				ret = append(ret, obj.findPath(path, append(parent, key))...)
+				ret = append(ret, obj.findPath(findPath, append(parentPath, key))...)
 			}
 		}
 		return ret
 	}
-	if path[0] == "*" {
-		ret := []ObjectWithPath{}
+	if findPath[0] == "*" {
+		ret := []objectWithPath{}
 		for k, v := range o {
-			obj, ok := v.(Object)
+			obj, ok := v.(object)
 			if ok {
 				key := fmt.Sprintf("%v", k)
-				ret = append(ret, obj.findPath(path[1:], append(parent, key))...)
+				ret = append(ret, obj.findPath(findPath[1:], append(parentPath, key))...)
 			}
 		}
 		return ret
 	}
 
 	exp := regexp.MustCompile(`^\[\?\(@([[:alnum:]]+)=='([[:alnum:]]+)'\)\]`)
-	result := exp.FindStringSubmatch(path[0])
+	result := exp.FindStringSubmatch(findPath[0])
 	if result != nil {
 		if o[result[1]] == result[2] {
-			return []ObjectWithPath{{object: o, path: parent}}
+			return []objectWithPath{{object: o, path: parentPath}}
 		}
 		return nil
 	}
-	v, ok := o[path[0]]
+	v, ok := o[findPath[0]]
 	if !ok {
 		// try again with int
-		i, err := strconv.Atoi(path[0])
+		i, err := strconv.Atoi(findPath[0])
 		if err != nil {
 			return nil
 		}
 		v, ok = o[i]
 	}
 	if ok {
-		obj, ok := v.(Object)
+		obj, ok := v.(object)
 		if ok {
-			return obj.findPath(path[1:], append(parent, path[0]))
+			return obj.findPath(findPath[1:], append(parentPath, findPath[0]))
 		}
 	}
 	return nil
 }
 
-func (o Object) getOrCreateChildObject(name string) Object {
+func (o object) getOrCreateChildObject(name string) object {
 	r, ok := o[name]
 	if !ok {
-		ret := Object{}
+		ret := object{}
 		o[name] = ret
 		return ret
 	}
 
-	ret, ok := r.(Object)
+	ret, ok := r.(object)
 	if !ok {
 		panic(fmt.Errorf("%s is not object", name))
 	}
 	return ret
 }
 
-func (o Object) isEqual(other Object) bool {
+func (o object) isEqual(other object) bool {
 	return reflect.DeepEqual(o, other)
 	// for k, v := range o {
 	// 	if k == "description" {
@@ -102,10 +102,10 @@ func (o Object) isEqual(other Object) bool {
 	// return true
 }
 
-func copyObject(m Object) Object {
-	cp := make(Object)
+func copyObject(m object) object {
+	cp := make(object)
 	for k, v := range m {
-		vm, ok := v.(Object)
+		vm, ok := v.(object)
 		if ok {
 			cp[k] = copyObject(vm)
 		} else {

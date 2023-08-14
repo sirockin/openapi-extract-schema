@@ -2,12 +2,14 @@ package spec
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -17,13 +19,26 @@ const (
 	embeddedArrayObjectSearchPath = "$.components.schemas.*.*.*.*.[?(@type=='object')]"
 )
 
-type Spec struct{ Object }
+type Spec struct{ object }
+
+func NewFromYaml(reader io.Reader) (*Spec, error) {
+	ret := Spec{}
+	err := yaml.NewDecoder(reader).Decode(&ret.object)
+	if err != nil {
+		return nil, err
+	}
+	return &ret, nil
+}
+
+func (s Spec) ToYaml(writer io.Writer) error {
+	return yaml.NewEncoder(writer).Encode(&s.object)
+}
 
 func (s Spec) Transform() Spec {
-	requests := s.FindPath(requestSearchPath)
-	groupedRequests := GroupObjects(requests)
-	responses := s.FindPath(responseSearchPath)
-	groupedResponses := GroupObjects(responses)
+	requests := s.findStringPath(requestSearchPath)
+	groupedRequests := groupObjects(requests)
+	responses := s.findStringPath(responseSearchPath)
+	groupedResponses := groupObjects(responses)
 	fmt.Printf("Found %d request schema in %d groups\n", len(requests), len(groupedRequests))
 	fmt.Printf("Found %d response schema in %d groups\n", len(responses), len(groupedResponses))
 
@@ -57,10 +72,10 @@ func (s Spec) Transform() Spec {
 
 	// We need to do this iteratively since there may be more than one level of embedded object
 	for {
-		embeddedObjects := s.FindPath(embeddedObjectSearchPath)
-		groupedEmbeddedObjects := GroupObjects(embeddedObjects)
-		embeddedArrayObjects := s.FindPath(embeddedArrayObjectSearchPath)
-		groupedEmbeddedArrayObjects := GroupObjects(embeddedArrayObjects)
+		embeddedObjects := s.findStringPath(embeddedObjectSearchPath)
+		groupedEmbeddedObjects := groupObjects(embeddedObjects)
+		embeddedArrayObjects := s.findStringPath(embeddedArrayObjectSearchPath)
+		groupedEmbeddedArrayObjects := groupObjects(embeddedArrayObjects)
 		fmt.Printf("Found %d embedded objects in %d groups\n", len(embeddedObjects), len(groupedEmbeddedObjects))
 		fmt.Printf("Found %d embedded array objects in %d groups\n", len(embeddedArrayObjects), len(groupedEmbeddedArrayObjects))
 		if len(embeddedObjects) == 0 && len(embeddedArrayObjects) == 0 {
@@ -111,30 +126,30 @@ func (s Spec) symbolExists(symbol string) bool {
 	return exists
 }
 
-func (s Spec) FindPath(path string) []ObjectWithPath {
-	return s.findPath(NewPath(strings.TrimPrefix(path, "$.")))
+func (s Spec) findStringPath(path string) []objectWithPath {
+	return s.findPath(newPath(strings.TrimPrefix(path, "$.")))
 }
 
-func (s Spec) findPath(path Path) []ObjectWithPath {
-	return s.Object.findPath(path, nil)
+func (s Spec) findPath(path _path) []objectWithPath {
+	return s.object.findPath(path, nil)
 }
 
-func (s Spec) schemasNode() Object {
-	return s.Object.getOrCreateChildObject("components").
+func (s Spec) schemasNode() object {
+	return s.object.getOrCreateChildObject("components").
 		getOrCreateChildObject("schemas")
 }
 
-func (s Spec) addObjectSchema(obj Object, name string) {
+func (s Spec) addObjectSchema(obj object, name string) {
 	s.schemasNode()[name] = copyObject(obj)
 }
 
-func (s Spec) replaceWithRefs(paths []Path, name string) {
+func (s Spec) replaceWithRefs(paths []_path, name string) {
 	for _, path := range paths {
 		s.replaceWithRef(path, name)
 	}
 }
 
-func (s Spec) replaceWithRef(path Path, name string) {
+func (s Spec) replaceWithRef(path _path, name string) {
 	found := s.findPath(path)
 	if len(found) != 1 {
 		panic(fmt.Errorf("expected to find 1 object, found %d", len(found)))
@@ -147,9 +162,9 @@ func (s Spec) replaceWithRef(path Path, name string) {
 	obj["$ref"] = fmt.Sprintf("#/components/schemas/%s", name)
 }
 
-func (s Spec) findMatchingSchema(obj Object) string {
+func (s Spec) findMatchingSchema(obj object) string {
 	for name, schema := range s.schemasNode() {
-		schemaObj, ok := schema.(Object)
+		schemaObj, ok := schema.(object)
 		if !ok {
 			continue
 		}
@@ -189,21 +204,21 @@ func nextSymbol(symbol string) string {
 	return fmt.Sprintf("%s%d", string(prefix), (lastNum + 1))
 }
 
-func GroupObjects(objects []ObjectWithPath) []ObjectWithPaths {
-	ret := []ObjectWithPaths{}
+func groupObjects(objects []objectWithPath) []objectWithPaths {
+	ret := []objectWithPaths{}
 	for _, obj := range objects {
 		if idx := findMatchingObjectWithPaths(obj.object, ret); idx >= 0 {
 			ret[idx].paths = append(ret[idx].paths, obj.path)
 		} else {
-			ret = append(ret, ObjectWithPaths{object: obj.object, paths: []Path{obj.path}})
+			ret = append(ret, objectWithPaths{object: obj.object, paths: []_path{obj.path}})
 		}
 	}
 	return ret
 }
 
-func findMatchingObjectWithPaths(object Object, list []ObjectWithPaths) int {
+func findMatchingObjectWithPaths(obj object, list []objectWithPaths) int {
 	for i, owp := range list {
-		if owp.object.isEqual(object) {
+		if owp.object.isEqual(obj) {
 			return i
 		}
 	}

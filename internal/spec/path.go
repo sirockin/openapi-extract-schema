@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"strings"
 )
-type Path   []string
-type Paths []Path
 
-func NewPath(path string) Path {
-	return strings.Split(strings.TrimPrefix(path, "."), ".")
+type (
+	_path []string
+	paths []_path
+)
+
+func newPath(stringPath string) _path {
+	return strings.Split(strings.TrimPrefix(stringPath, "."), ".")
 }
 
-func (ps Paths) responseSymbol() (string, error) {
+func (ps paths) responseSymbol() (string, error) {
 	if len(ps) == 0 {
 		return "", fmt.Errorf("No paths found")
 	}
@@ -46,7 +49,7 @@ func (ps Paths) responseSymbol() (string, error) {
 	return strings.Join(parts, ""), nil
 }
 
-func (ps Paths) embeddedSymbol() (string, error) {
+func (ps paths) embeddedSymbol() (string, error) {
 	if len(ps) == 0 {
 		return "", fmt.Errorf("No paths found")
 	}
@@ -56,7 +59,7 @@ func (ps Paths) embeddedSymbol() (string, error) {
 	return ps[0][len(ps[0])-1], nil
 }
 
-func (ps Paths) embeddedArraySymbol() (string, error) {
+func (ps paths) embeddedArraySymbol() (string, error) {
 	if len(ps) == 0 {
 		return "", fmt.Errorf("No paths found")
 	}
@@ -66,7 +69,7 @@ func (ps Paths) embeddedArraySymbol() (string, error) {
 	return ps[0][len(ps[0])-2] + "Item", nil
 }
 
-func (ps Paths) requestSymbol() (string, error) {
+func (ps paths) requestSymbol() (string, error) {
 	if len(ps) == 0 {
 		return "", fmt.Errorf("No paths found")
 	}
@@ -93,7 +96,7 @@ func (ps Paths) requestSymbol() (string, error) {
 	return strings.Join(parts, ""), nil
 }
 
-func (ps Paths) commonValueAtIndex(idx int) (string, error) {
+func (ps paths) commonValueAtIndex(idx int) (string, error) {
 	if len(ps) == 0 {
 		return "", fmt.Errorf("No paths found")
 	}
@@ -114,7 +117,7 @@ func (ps Paths) commonValueAtIndex(idx int) (string, error) {
 	return ret, nil
 }
 
-func (ps Paths) commonStatusCode() (string, error) {
+func (ps paths) commonStatusCode() (string, error) {
 	idx := 4
 	if len(ps) == 0 {
 		return "", fmt.Errorf("No paths found")
