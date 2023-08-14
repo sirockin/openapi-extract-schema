@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"gopkg.in/yaml.v2"
+	"github.com/sirockin/openapi-extract-schema/internal/spec"
 )
 
 func main() {
@@ -26,13 +27,13 @@ func main() {
 		panic(err)
 	}
 
-	spec := Spec{}
-	err = yaml.NewDecoder(inStream).Decode(&spec.Object)
+	inSpec := spec.Spec{}
+	err = yaml.NewDecoder(inStream).Decode(&inSpec.Object)
 	if err != nil {
 		panic(err)
 	}
 
-	outSpec := spec.Transform()
+	outSpec := inSpec.Transform()
 	err = yaml.NewEncoder(outStream).Encode(outSpec.Object)
 	if err != nil {
 		panic(err)
