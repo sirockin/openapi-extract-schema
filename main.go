@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	requestSearchPath        = "$.paths.*.*.requestBody.content.*.schema"
-	responseSearchPath       = "$.paths.*.*.responses.*.content.*.schema"
-	embeddedObjectSearchPath = "$.components.schemas.*.properties.*.[?(@type=='object')]"
+	requestSearchPath             = "$.paths.*.*.requestBody.content.*.schema"
+	responseSearchPath            = "$.paths.*.*.responses.*.content.*.schema"
+	embeddedObjectSearchPath      = "$.components.schemas.*.properties.*.[?(@type=='object')]"
 	embeddedArrayObjectSearchPath = "$.components.schemas.*.*.*.*.[?(@type=='object')]"
 )
 
@@ -62,20 +62,31 @@ func (s Spec) Transform() Spec {
 	fmt.Printf("Found %d response schema in %d groups\n", len(responses), len(groupedResponses))
 
 	for _, val := range groupedRequests {
-		symbol, err := val.paths.requestSymbol()
-		if err != nil {
-			panic(err)
+		symbol := s.findMatchingSchema(val.object)
+		if symbol == "" {
+			var err error
+			symbol, err = val.paths.requestSymbol()
+			if err != nil {
+				panic(err)
+			}
+
+			symbol = s.uniqueSymbol(symbol)
+			s.addObjectSchema(val.object, symbol)
 		}
-		symbol = s.uniqueSymbol(symbol)
-		s.moveToSchemas(val, symbol)
+		s.replaceWithRefs(val.paths, symbol)
 	}
 	for _, val := range groupedResponses {
-		symbol, err := val.paths.responseSymbol()
-		if err != nil {
-			panic(err)
+		symbol := s.findMatchingSchema(val.object)
+		if symbol == "" {
+			var err error
+			symbol, err = val.paths.responseSymbol()
+			if err != nil {
+				panic(err)
+			}
+			symbol = s.uniqueSymbol(symbol)
+			s.addObjectSchema(val.object, symbol)
 		}
-		symbol = s.uniqueSymbol(symbol)
-		s.moveToSchemas(val, symbol)
+		s.replaceWithRefs(val.paths, symbol)
 	}
 
 	embeddedObjects := s.FindPath(embeddedObjectSearchPath)
@@ -84,8 +95,34 @@ func (s Spec) Transform() Spec {
 	groupedEmbeddedArrayObjects := GroupObjects(embeddedArrayObjects)
 	fmt.Printf("Found %d embedded objects in %d groups\n", len(embeddedObjects), len(groupedEmbeddedObjects))
 	fmt.Printf("Found %d embedded array objects in %d groups\n", len(embeddedArrayObjects), len(groupedEmbeddedArrayObjects))
+	for _, val := range groupedEmbeddedObjects {
+		symbol := s.findMatchingSchema(val.object)
+		if symbol == "" {
+			var err error
+			symbol, err = val.paths.embeddedSymbol()
+			if err != nil {
+				panic(err)
+			}
 
+			symbol = s.uniqueSymbol(symbol)
+			s.addObjectSchema(val.object, symbol)
+		}
+		s.replaceWithRefs(val.paths, symbol)
+	}
+	for _, val := range groupedEmbeddedArrayObjects {
+		symbol := s.findMatchingSchema(val.object)
+		if symbol == "" {
+			var err error
+			symbol, err = val.paths.embeddedArraySymbol()
+			if err != nil {
+				panic(err)
+			}
 
+			symbol = s.uniqueSymbol(symbol)
+			s.addObjectSchema(val.object, symbol)
+		}
+		s.replaceWithRefs(val.paths, symbol)
+	}
 	return s
 }
 
@@ -134,6 +171,26 @@ func (ps Paths) responseSymbol() (string, error) {
 	parts = append(parts, "Response")
 
 	return strings.Join(parts, ""), nil
+}
+
+func (ps Paths) embeddedSymbol() (string, error) {
+	if len(ps) == 0 {
+		return "", fmt.Errorf("No paths found")
+	}
+	if len(ps[0]) == 0 {
+		return "", fmt.Errorf("empty path")
+	}
+	return ps[0][len(ps[0])-1], nil
+}
+
+func (ps Paths) embeddedArraySymbol() (string, error) {
+	if len(ps) == 0 {
+		return "", fmt.Errorf("No paths found")
+	}
+	if len(ps[0]) <= 1 {
+		return "", fmt.Errorf("path not long enough")
+	}
+	return ps[0][len(ps[0])-2] + "Item", nil
 }
 
 func (ps Paths) requestSymbol() (string, error) {
@@ -246,7 +303,6 @@ func nextSymbol(symbol string) string {
 	sym := []rune(symbol)
 	var numDigits int
 	for numDigits = 0; unicode.IsDigit(sym[len(sym)-1-numDigits]); numDigits++ {
-		fmt.Printf("numDigits: %d\n", numDigits)
 	}
 	if numDigits == 0 {
 		return symbol + "2"
@@ -365,19 +421,37 @@ func (o Object) getOrCreateChildObject(name string) Object {
 }
 
 func (o Object) isEqual(other Object) bool {
-	// TODO: perhaps exclude stuff like 'description' from comparison
 	return reflect.DeepEqual(o, other)
+	// for k, v := range o {
+	// 	if k == "description" {
+	// 		continue
+	// 	}
+	// 	childObj, ok := v.(Object)
+	// 	if ok {
+	// 		childOtherObj, ok := other[k].(Object)
+	// 		if !ok {
+	// 			return false
+	// 		}
+	// 		if !childObj.isEqual(childOtherObj) {
+	// 			return false
+	// 		}
+	// 	}else{
+	// 		if reflect.DeepEqual(v, other[k]) {
+	// 			continue
+	// 		}
+	// 	}
+	// }
+	// return true
 }
 
-func (s Spec) moveToSchemas(objPath ObjectWithPaths, name string) {
-	s.addToSchemas(objPath.object, name)
-	for _, path := range objPath.paths {
+func (s Spec) addObjectSchema(obj Object, name string) {
+	s.schemasNode()[name] = copyObject(obj)
+}
+
+func (s Spec) replaceWithRefs(paths []Path, name string) {
+	for _, path := range paths {
 		s.replaceWithRef(path, name)
 	}
-}
-
-func (s Spec) addToSchemas(obj Object, name string){
-	s.schemasNode()[name] = copyObject(obj)
 }
 
 func (s Spec) replaceWithRef(path Path, name string) {
@@ -396,7 +470,7 @@ func (s Spec) replaceWithRef(path Path, name string) {
 func (s Spec) findMatchingSchema(obj Object) string {
 	for name, schema := range s.schemasNode() {
 		schemaObj, ok := schema.(Object)
-		if !ok{
+		if !ok {
 			continue
 		}
 		if schemaObj.isEqual(obj) {
