@@ -89,39 +89,46 @@ func (s Spec) Transform() Spec {
 		s.replaceWithRefs(val.paths, symbol)
 	}
 
-	embeddedObjects := s.FindPath(embeddedObjectSearchPath)
-	groupedEmbeddedObjects := GroupObjects(embeddedObjects)
-	embeddedArrayObjects := s.FindPath(embeddedArrayObjectSearchPath)
-	groupedEmbeddedArrayObjects := GroupObjects(embeddedArrayObjects)
-	fmt.Printf("Found %d embedded objects in %d groups\n", len(embeddedObjects), len(groupedEmbeddedObjects))
-	fmt.Printf("Found %d embedded array objects in %d groups\n", len(embeddedArrayObjects), len(groupedEmbeddedArrayObjects))
-	for _, val := range groupedEmbeddedObjects {
-		symbol := s.findMatchingSchema(val.object)
-		if symbol == "" {
-			var err error
-			symbol, err = val.paths.embeddedSymbol()
-			if err != nil {
-				panic(err)
-			}
-
-			symbol = s.uniqueSymbol(symbol)
-			s.addObjectSchema(val.object, symbol)
+	// We need to do this iteratively since there may be more than one level of embedded object
+	for {
+		embeddedObjects := s.FindPath(embeddedObjectSearchPath)
+		groupedEmbeddedObjects := GroupObjects(embeddedObjects)
+		embeddedArrayObjects := s.FindPath(embeddedArrayObjectSearchPath)
+		groupedEmbeddedArrayObjects := GroupObjects(embeddedArrayObjects)
+		fmt.Printf("Found %d embedded objects in %d groups\n", len(embeddedObjects), len(groupedEmbeddedObjects))
+		fmt.Printf("Found %d embedded array objects in %d groups\n", len(embeddedArrayObjects), len(groupedEmbeddedArrayObjects))
+		if len(embeddedObjects) == 0 && len(embeddedArrayObjects) == 0 {
+			break
 		}
-		s.replaceWithRefs(val.paths, symbol)
-	}
-	for _, val := range groupedEmbeddedArrayObjects {
-		symbol := s.findMatchingSchema(val.object)
-		if symbol == "" {
-			var err error
-			symbol, err = val.paths.embeddedArraySymbol()
-			if err != nil {
-				panic(err)
+		for _, val := range groupedEmbeddedObjects {
+			symbol := s.findMatchingSchema(val.object)
+			if symbol == "" {
+				var err error
+				symbol, err = val.paths.embeddedSymbol()
+				if err != nil {
+					panic(err)
+				}
+	
+				symbol = s.uniqueSymbol(symbol)
+				s.addObjectSchema(val.object, symbol)
 			}
-
-			symbol = s.uniqueSymbol(symbol)
-			s.addObjectSchema(val.object, symbol)
+			s.replaceWithRefs(val.paths, symbol)
 		}
-		s.replaceWithRefs(val.paths, symbol)
+		for _, val := range groupedEmbeddedArrayObjects {
+			symbol := s.findMatchingSchema(val.object)
+			if symbol == "" {
+				var err error
+				symbol, err = val.paths.embeddedArraySymbol()
+				if err != nil {
+					panic(err)
+				}
+	
+				symbol = s.uniqueSymbol(symbol)
+				s.addObjectSchema(val.object, symbol)
+			}
+			s.replaceWithRefs(val.paths, symbol)
+		}
+	
 	}
 	return s
 }
