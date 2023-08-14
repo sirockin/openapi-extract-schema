@@ -14,7 +14,7 @@ func TestFindPath(t *testing.T) {
 		want []ObjectWithPath
 	}{
 		"default": {
-			path: ".paths.*.*.requestBody.*.schema",
+			path: "$.paths.*.*.requestBody.*.schema",
 			spec: Spec{
 				Object{
 					"paths": Object{
@@ -47,6 +47,116 @@ func TestFindPath(t *testing.T) {
 				},
 			},
 		},
+		"specify attribute type": {
+			path: "$.components.schemas.*.[?(@type=='object')]",
+			spec: Spec{
+				Object{
+					"components": Object{
+						"schemas": Object{
+							"topLevel": Object{
+								"type": "object",
+								"properties": Object{
+									"name": Object{
+										"type": "string",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []ObjectWithPath{
+				{
+					object: Object{
+						"type": "object",
+						"properties": Object{
+							"name": Object{
+								"type": "string",
+							},
+						},
+					},
+					path: Path{"components", "schemas", "topLevel"},
+				},
+			},
+		},
+		"one level down specify attribute type": {
+			path: "$.components.schemas.*.*.*.[?(@type=='object')]",
+			spec: Spec{
+				Object{
+					"components": Object{
+						"schemas": Object{
+							"topLevel": Object{
+								"type": "object",
+								"properties": Object{
+									"name": Object{
+										"type": "string",
+									},
+									"complex": Object{
+										"type": "object",
+										"properties": Object{
+											"foo": "bar",
+											"ping:": Object{
+												"whizz": "bang",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []ObjectWithPath{
+				{
+					object: Object{
+						"type": "object",
+						"properties": Object{
+							"foo": "bar",
+							"ping:": Object{
+								"whizz": "bang",
+							},
+						},
+					},
+					path: Path{"components", "schemas", "topLevel", "properties", "complex"},
+				},
+			},
+		},	
+		"arbitrary depth specify attribute type": {
+			path: "$.components.schemas.*.*..[?(@type=='object')]",
+			spec: Spec{
+				Object{
+					"components": Object{
+						"schemas": Object{
+							"topLevel": Object{
+								"type": "object",
+								"properties": Object{
+									"name": Object{
+										"type": "string",
+									},
+									"complex": Object{
+										"type": "object",
+										"properties": Object{
+											"foo": "bar",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []ObjectWithPath{
+				{
+					object: Object{
+						"type": "object",
+						"properties": Object{
+							"foo": "bar",
+						},
+					},
+					path: Path{"components", "schemas", "topLevel", "properties", "complex"},
+				},
+			},
+		},				
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -56,7 +166,6 @@ func TestFindPath(t *testing.T) {
 		})
 	}
 }
-
 
 func TestGroupObjects(t *testing.T) {
 	tests := map[string]struct {
@@ -228,7 +337,7 @@ func TestObjectWithPaths_requestSymbol(t *testing.T) {
 func TestObjectWithPaths_responseSymbol(t *testing.T) {
 	// .paths.*.*.responses.*.content.*.schema	tests := map[string]struct {
 	tests := map[string]struct {
-			paths Paths
+		paths Paths
 		want  string
 	}{
 		"single response": {
@@ -249,21 +358,21 @@ func TestObjectWithPaths_responseSymbol(t *testing.T) {
 				{"paths", "/v2/foo", "GET", "responses", "200"},
 			},
 			want: "CommonV2Foo200Response",
-		},		
+		},
 		"all except endpoint the same": {
 			paths: []Path{
 				{"paths", "/v2/foo", "POST", "responses", "200"},
 				{"paths", "/v2/ping", "POST", "responses", "200"},
 			},
 			want: "CommonPost200Response",
-		},		
+		},
 		"all except response code suffix the same": {
 			paths: []Path{
 				{"paths", "/v2/ping", "POST", "responses", "201"},
 				{"paths", "/v2/ping", "POST", "responses", "200"},
 			},
 			want: "PostV2Ping2xxResponse",
-		},		
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {

@@ -52,3 +52,11 @@ If more than one name shares schema:
 
 ### Other Schemas
 Just use Member name with suffix
+
+Algorithm:
+
+1. Repeatedly:
+   1. Look in components/schemas/ for type: object and array/object at first level
+   2. For each object found:
+      1. call GroupObjects
+      2. If it already exists in schemas, add that reference (we may want to backfill our request/response implementation to do this too)3. If not create the new reference 

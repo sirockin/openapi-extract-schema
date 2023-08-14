@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -14,8 +15,10 @@ import (
 )
 
 const (
-	requestSearchPath  = ".paths.*.*.requestBody.content.*.schema"
-	responseSearchPath = ".paths.*.*.responses.*.content.*.schema"
+	requestSearchPath        = "$.paths.*.*.requestBody.content.*.schema"
+	responseSearchPath       = "$.paths.*.*.responses.*.content.*.schema"
+	embeddedObjectSearchPath = "$.components.schemas.*.properties.*.[?(@type=='object')]"
+	embeddedArrayObjectSearchPath = "$.components.schemas.*.*.*.*.[?(@type=='object')]"
 )
 
 func main() {
@@ -74,6 +77,15 @@ func (s Spec) Transform() Spec {
 		symbol = s.uniqueSymbol(symbol)
 		s.moveToSchemas(val, symbol)
 	}
+
+	embeddedObjects := s.FindPath(embeddedObjectSearchPath)
+	groupedEmbeddedObjects := GroupObjects(embeddedObjects)
+	embeddedArrayObjects := s.FindPath(embeddedArrayObjectSearchPath)
+	groupedEmbeddedArrayObjects := GroupObjects(embeddedArrayObjects)
+	fmt.Printf("Found %d embedded objects in %d groups\n", len(embeddedObjects), len(groupedEmbeddedObjects))
+	fmt.Printf("Found %d embedded array objects in %d groups\n", len(embeddedArrayObjects), len(groupedEmbeddedArrayObjects))
+
+
 	return s
 }
 
@@ -263,8 +275,7 @@ func GroupObjects(objects []ObjectWithPath) []ObjectWithPaths {
 
 func findMatchingObjectWithPaths(object Object, list []ObjectWithPaths) int {
 	for i, owp := range list {
-		// TODO: perhaps exclude stuff like 'description' from comparison
-		if reflect.DeepEqual(owp.object, object) {
+		if owp.object.isEqual(object) {
 			return i
 		}
 	}
@@ -272,7 +283,7 @@ func findMatchingObjectWithPaths(object Object, list []ObjectWithPaths) int {
 }
 
 func (s Spec) FindPath(path string) []ObjectWithPath {
-	return s.findPath(NewPath(strings.TrimPrefix(path, ".")))
+	return s.findPath(NewPath(strings.TrimPrefix(path, "$.")))
 }
 
 func (s Spec) findPath(path Path) []ObjectWithPath {
@@ -283,8 +294,19 @@ func (o Object) findPath(path Path, parent Path) []ObjectWithPath {
 	if len(path) == 0 {
 		return []ObjectWithPath{{object: o, path: parent}}
 	}
-	switch path[0] {
-	case "*":
+	// from arbitrary depth '..'
+	if path[0] == "" {
+		ret := o.findPath(path[1:], parent)
+		for k, v := range o {
+			obj, ok := v.(Object)
+			if ok {
+				key := fmt.Sprintf("%v", k)
+				ret = append(ret, obj.findPath(path, append(parent, key))...)
+			}
+		}
+		return ret
+	}
+	if path[0] == "*" {
 		ret := []ObjectWithPath{}
 		for k, v := range o {
 			obj, ok := v.(Object)
@@ -294,24 +316,32 @@ func (o Object) findPath(path Path, parent Path) []ObjectWithPath {
 			}
 		}
 		return ret
-	default:
-		v, ok := o[path[0]]
-		if !ok {
-			// try again with int
-			i, err := strconv.Atoi(path[0])
-			if err != nil {
-				return nil
-			}
-			v, ok = o[i]
-		}
-		if ok {
-			obj, ok := v.(Object)
-			if ok {
-				return obj.findPath(path[1:], append(parent, path[0]))
-			}
+	}
+
+	exp := regexp.MustCompile(`^\[\?\(@([[:alnum:]]+)=='([[:alnum:]]+)'\)\]`)
+	result := exp.FindStringSubmatch(path[0])
+	if result != nil {
+		if o[result[1]] == result[2] {
+			return []ObjectWithPath{{object: o, path: parent}}
 		}
 		return nil
 	}
+	v, ok := o[path[0]]
+	if !ok {
+		// try again with int
+		i, err := strconv.Atoi(path[0])
+		if err != nil {
+			return nil
+		}
+		v, ok = o[i]
+	}
+	if ok {
+		obj, ok := v.(Object)
+		if ok {
+			return obj.findPath(path[1:], append(parent, path[0]))
+		}
+	}
+	return nil
 }
 
 func (s Spec) schemasNode() Object {
@@ -334,35 +364,59 @@ func (o Object) getOrCreateChildObject(name string) Object {
 	return ret
 }
 
+func (o Object) isEqual(other Object) bool {
+	// TODO: perhaps exclude stuff like 'description' from comparison
+	return reflect.DeepEqual(o, other)
+}
+
 func (s Spec) moveToSchemas(objPath ObjectWithPaths, name string) {
-	s.schemasNode()[name] = copyMap(objPath.object)
+	s.addToSchemas(objPath.object, name)
 	for _, path := range objPath.paths {
-		fmt.Printf("path: %v\n", path)
-		found := s.findPath(path)
-		if len(found) != 1 {
-			panic(fmt.Errorf("expected to find 1 object, found %d", len(found)))
-		}
-		obj := found[0].object
-		// Remove all existing keys
-		for k := range obj {
-			delete(obj, k)
-		}
-		obj["$ref"] = fmt.Sprintf("#/components/schemas/%s", name)
+		s.replaceWithRef(path, name)
 	}
 }
 
-func copyMap(m map[interface{}]interface{}) map[interface{}]interface{} {
-    cp := make(map[interface{}]interface{})
-    for k, v := range m {
-        vm, ok := v.(map[interface{}]interface{})
-        if ok {
-            cp[k] = copyMap(vm)
-        } else {
-            cp[k] = v
-        }
-    }
+func (s Spec) addToSchemas(obj Object, name string){
+	s.schemasNode()[name] = copyObject(obj)
+}
 
-    return cp
+func (s Spec) replaceWithRef(path Path, name string) {
+	found := s.findPath(path)
+	if len(found) != 1 {
+		panic(fmt.Errorf("expected to find 1 object, found %d", len(found)))
+	}
+	obj := found[0].object
+	// Remove all existing keys
+	for k := range obj {
+		delete(obj, k)
+	}
+	obj["$ref"] = fmt.Sprintf("#/components/schemas/%s", name)
+}
+
+func (s Spec) findMatchingSchema(obj Object) string {
+	for name, schema := range s.schemasNode() {
+		schemaObj, ok := schema.(Object)
+		if !ok{
+			continue
+		}
+		if schemaObj.isEqual(obj) {
+			return fmt.Sprintf("%v", name)
+		}
+	}
+	return ""
+}
+
+func copyObject(m Object) Object {
+	cp := make(Object)
+	for k, v := range m {
+		vm, ok := v.(Object)
+		if ok {
+			cp[k] = copyObject(vm)
+		} else {
+			cp[k] = v
+		}
+	}
+	return cp
 }
 
 func toTitle(in string) string {
