@@ -201,6 +201,7 @@ func (ps Paths) commonStatusCode() (string, error) {
 
 func sanitizeURLPath(in string) string {
 	in = strings.Trim(in, "/")
+	in = strings.ReplaceAll(in, "-", "/")
 	vals := strings.Split(in, "/")
 	var sb strings.Builder
 	for _, v := range vals {

@@ -195,6 +195,12 @@ func TestObjectWithPaths_requestSymbol(t *testing.T) {
 			},
 			want: "PostV2FooRequest",
 		},
+		"single request with dash in endpoing": {
+			paths: []Path{
+				{"paths", "/v2/mandate-imports", "POST", "requestBody", "content", "application/json", "schema"},
+			},
+			want: "PostV2MandateImportsRequest",
+		},
 		"common endpoint": {
 			paths: []Path{
 				{"paths", "/v2/foo", "POST", "requestBody", "content", "application/json", "schema"},
@@ -230,6 +236,12 @@ func TestObjectWithPaths_responseSymbol(t *testing.T) {
 				{"paths", "/v2/foo", "POST", "responses", "200"},
 			},
 			want: "PostV2Foo200Response",
+		},
+		"single response with dash in endpoint": {
+			paths: []Path{
+				{"paths", "/v2/mandate-imports", "POST", "responses", "200"},
+			},
+			want: "PostV2MandateImports200Response",
 		},
 		"all except verb the same": {
 			paths: []Path{
