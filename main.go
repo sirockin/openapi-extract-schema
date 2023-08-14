@@ -18,7 +18,6 @@ const (
 	responseSearchPath = ".paths.*.*.responses.*.content.*.schema"
 )
 
-
 func main() {
 	if len(os.Args) != 3 {
 		fmt.Println("Usage: openapi-extract-schema {input-file} {output-file}")
@@ -77,7 +76,6 @@ func (s Spec) Transform() Spec {
 	}
 	return s
 }
-
 
 type ObjectWithPath struct {
 	object Object
@@ -274,8 +272,11 @@ func findMatchingObjectWithPaths(object Object, list []ObjectWithPaths) int {
 }
 
 func (s Spec) FindPath(path string) []ObjectWithPath {
-	path = strings.TrimPrefix(path, ".")
-	return s.Object.findPath(NewPath(path), nil)
+	return s.findPath(NewPath(strings.TrimPrefix(path, ".")))
+}
+
+func (s Spec) findPath(path Path) []ObjectWithPath {
+	return s.Object.findPath(path, nil)
 }
 
 func (o Object) findPath(path Path, parent Path) []ObjectWithPath {
@@ -295,6 +296,14 @@ func (o Object) findPath(path Path, parent Path) []ObjectWithPath {
 		return ret
 	default:
 		v, ok := o[path[0]]
+		if !ok {
+			// try again with int
+			i, err := strconv.Atoi(path[0])
+			if err != nil {
+				return nil
+			}
+			v, ok = o[i]
+		}
 		if ok {
 			obj, ok := v.(Object)
 			if ok {
@@ -326,7 +335,34 @@ func (o Object) getOrCreateChildObject(name string) Object {
 }
 
 func (s Spec) moveToSchemas(objPath ObjectWithPaths, name string) {
-	s.schemasNode()[name] = objPath.object
+	s.schemasNode()[name] = copyMap(objPath.object)
+	for _, path := range objPath.paths {
+		fmt.Printf("path: %v\n", path)
+		found := s.findPath(path)
+		if len(found) != 1 {
+			panic(fmt.Errorf("expected to find 1 object, found %d", len(found)))
+		}
+		obj := found[0].object
+		// Remove all existing keys
+		for k := range obj {
+			delete(obj, k)
+		}
+		obj["$ref"] = fmt.Sprintf("#/components/schemas/%s", name)
+	}
+}
+
+func copyMap(m map[interface{}]interface{}) map[interface{}]interface{} {
+    cp := make(map[interface{}]interface{})
+    for k, v := range m {
+        vm, ok := v.(map[interface{}]interface{})
+        if ok {
+            cp[k] = copyMap(vm)
+        } else {
+            cp[k] = v
+        }
+    }
+
+    return cp
 }
 
 func toTitle(in string) string {
