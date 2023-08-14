@@ -245,6 +245,13 @@ func TestObjectWithPaths_responseSymbol(t *testing.T) {
 			},
 			want: "CommonPost200Response",
 		},		
+		"all except response code suffix the same": {
+			paths: []Path{
+				{"paths", "/v2/ping", "POST", "responses", "content", "application/json", "schema", "responses", "201"},
+				{"paths", "/v2/ping", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
+			},
+			want: "CommonPost2xxResponse",
+		},		
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
