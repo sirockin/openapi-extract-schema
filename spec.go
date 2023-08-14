@@ -10,6 +10,13 @@ import (
 	"golang.org/x/text/language"
 )
 
+const (
+	requestSearchPath             = "$.paths.*.*.requestBody.content.*.schema"
+	responseSearchPath            = "$.paths.*.*.responses.*.content.*.schema"
+	embeddedObjectSearchPath      = "$.components.schemas.*.properties.*.[?(@type=='object')]"
+	embeddedArrayObjectSearchPath = "$.components.schemas.*.*.*.*.[?(@type=='object')]"
+)
+
 type Spec struct{ Object }
 
 func (s Spec) Transform() Spec {

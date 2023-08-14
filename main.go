@@ -7,13 +7,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const (
-	requestSearchPath             = "$.paths.*.*.requestBody.content.*.schema"
-	responseSearchPath            = "$.paths.*.*.responses.*.content.*.schema"
-	embeddedObjectSearchPath      = "$.components.schemas.*.properties.*.[?(@type=='object')]"
-	embeddedArrayObjectSearchPath = "$.components.schemas.*.*.*.*.[?(@type=='object')]"
-)
-
 func main() {
 	if len(os.Args) != 3 {
 		fmt.Println("Usage: openapi-extract-schema {input-file} {output-file}")
