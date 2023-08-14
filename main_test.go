@@ -250,7 +250,7 @@ func TestObjectWithPaths_responseSymbol(t *testing.T) {
 				{"paths", "/v2/ping", "POST", "responses", "content", "application/json", "schema", "responses", "201"},
 				{"paths", "/v2/ping", "POST", "responses", "content", "application/json", "schema", "responses", "200"},
 			},
-			want: "CommonPost2xxResponse",
+			want: "PostV2Ping2xxResponse",
 		},		
 	}
 	for name, tt := range tests {

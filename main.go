@@ -49,7 +49,7 @@ func (ps Paths) responseSymbol() (string, error) {
 	if endpoint != "" {
 		parts = append(parts, sanitizeURLPath(endpoint))
 	}
-	statusCode, err := ps.commonValueAtIndex(8)
+	statusCode, err := ps.commonStatusCodeValueAtIndex(8)
 	if err != nil {
 		return "", err
 	}
@@ -92,7 +92,6 @@ func (ps Paths) requestSymbol() (string, error) {
 	return strings.Join(parts, ""), nil
 }
 
-
 func (ps Paths) commonValueAtIndex(idx int) (string, error) {
 	if len(ps) == 0 {
 		return "", fmt.Errorf("No paths found")
@@ -114,6 +113,29 @@ func (ps Paths) commonValueAtIndex(idx int) (string, error) {
 	return ret, nil
 }
 
+func (ps Paths) commonStatusCodeValueAtIndex(idx int) (string, error) {
+	if len(ps) == 0 {
+		return "", fmt.Errorf("No paths found")
+	}
+	var ret string
+	for i, path := range ps {
+		if len(path) <= idx {
+			return "", fmt.Errorf("Path too short")
+		}
+		newVal := path[idx]
+		if i == 0 {
+			ret = newVal
+		} else {
+			if ret != newVal {
+				ret = ret[:1] + "xx"
+				if ret[:1] != newVal[:1] {
+					return "", nil
+				}
+			}
+		}
+	}
+	return ret, nil
+}
 
 func sanitizeURLPath(in string) string {
 	in = strings.Trim(in, "/")
