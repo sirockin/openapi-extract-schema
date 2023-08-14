@@ -53,7 +53,7 @@ func (ps Paths) responseSymbol() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if endpoint != "" {
+	if statusCode != "" {
 		parts = append(parts, statusCode)
 	}
 
