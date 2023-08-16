@@ -16,7 +16,7 @@ func newPath(stringPath string) _path {
 
 func (ps paths) responseSymbol() (string, error) {
 	if len(ps) == 0 {
-		return "", fmt.Errorf("No paths found")
+		return "", fmt.Errorf("no paths found")
 	}
 	parts := []string{}
 	verb, err := ps.commonValueAtIndex(2)
@@ -51,27 +51,27 @@ func (ps paths) responseSymbol() (string, error) {
 
 func (ps paths) embeddedSymbol() (string, error) {
 	if len(ps) == 0 {
-		return "", fmt.Errorf("No paths found")
+		return "", fmt.Errorf("no paths found")
 	}
 	if len(ps[0]) == 0 {
 		return "", fmt.Errorf("empty path")
 	}
-	return ps[0][len(ps[0])-1], nil
+	return capitalizeFirst(ps[0][len(ps[0])-1]), nil
 }
 
 func (ps paths) embeddedArraySymbol() (string, error) {
 	if len(ps) == 0 {
-		return "", fmt.Errorf("No paths found")
+		return "", fmt.Errorf("no paths found")
 	}
 	if len(ps[0]) <= 1 {
 		return "", fmt.Errorf("path not long enough")
 	}
-	return ps[0][len(ps[0])-2] + "Item", nil
+	return capitalizeFirst(ps[0][len(ps[0])-2]) + "Item", nil
 }
 
 func (ps paths) requestSymbol() (string, error) {
 	if len(ps) == 0 {
-		return "", fmt.Errorf("No paths found")
+		return "", fmt.Errorf("no paths found")
 	}
 	parts := []string{}
 	verb, err := ps.commonValueAtIndex(2)
@@ -98,12 +98,12 @@ func (ps paths) requestSymbol() (string, error) {
 
 func (ps paths) commonValueAtIndex(idx int) (string, error) {
 	if len(ps) == 0 {
-		return "", fmt.Errorf("No paths found")
+		return "", fmt.Errorf("no paths found")
 	}
 	var ret string
 	for i, path := range ps {
 		if len(path) <= idx {
-			return "", fmt.Errorf("Path too short")
+			return "", fmt.Errorf("path too short")
 		}
 		newVal := path[idx]
 		if i == 0 {
@@ -120,12 +120,12 @@ func (ps paths) commonValueAtIndex(idx int) (string, error) {
 func (ps paths) commonStatusCode() (string, error) {
 	idx := 4
 	if len(ps) == 0 {
-		return "", fmt.Errorf("No paths found")
+		return "", fmt.Errorf("no paths found")
 	}
 	var ret string
 	for i, path := range ps {
 		if len(path) <= idx {
-			return "", fmt.Errorf("Path too short")
+			return "", fmt.Errorf("path too short")
 		}
 		newVal := path[idx]
 		if i == 0 {

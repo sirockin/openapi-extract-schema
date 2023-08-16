@@ -181,7 +181,7 @@ func sanitizeURLPath(in string) string {
 	vals := strings.Split(in, "/")
 	var sb strings.Builder
 	for _, v := range vals {
-		sb.WriteString(toTitle(v))
+		sb.WriteString(capitalizeFirst(v))
 	}
 	return sb.String()
 }
@@ -227,4 +227,9 @@ func findMatchingObjectWithPaths(obj object, list []objectWithPaths) int {
 
 func toTitle(in string) string {
 	return cases.Title(language.English).String(in)
+}
+
+func capitalizeFirst(in string) string {
+	// return cases.Title(language.English).String(in)
+	return strings.ToUpper(in[:1]) + in[1:]
 }

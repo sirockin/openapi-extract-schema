@@ -18,7 +18,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "main.go",
-            "args": ["../cybersource-bofa-adapter/specs/cybersource-ctp-pnr.3.0.1.yaml", "../cybersource-bofa-adapter/specs/cybersource-ctp-pnr.3.0.1.extracted.yaml"]
+            "args": ["../../banked/cybersource-bofa-adapter/specs/cybersource-ctp-pnr.3.0.1.yaml", "../../banked/cybersource-bofa-adapter/specs/cybersource-ctp-pnr.3.0.1.extracted.yaml"]
         }
         
     ]

@@ -3,6 +3,8 @@ package spec
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_findPath(t *testing.T) {
@@ -286,6 +288,31 @@ func Test_nextSymbol(t *testing.T) {
 			if got := nextSymbol(tt.in); got != tt.want {
 				t.Errorf("nextSymbol() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func Test_capitalizeFirst(t *testing.T) {
+	tests := map[string]struct {
+		in   string
+		want string
+	}{
+		"all lower case": {
+			in:   "foo",
+			want: "Foo",
+		},
+		"already title case": {
+			in:   "FooBar",
+			want: "FooBar",
+		},
+		"camel case": {
+			in:   "fooBar",
+			want: "FooBar",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tt.want, capitalizeFirst(tt.in))
 		})
 	}
 }

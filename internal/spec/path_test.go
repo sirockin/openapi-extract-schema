@@ -6,8 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestObjectWithPaths_requestSymbol(t *testing.T) {
-	// ".paths.*.*.requestBody.content.*.schema"
+func TestPaths_requestSymbol(t *testing.T) {
 	tests := map[string]struct {
 		paths paths
 		want  string
@@ -18,7 +17,7 @@ func TestObjectWithPaths_requestSymbol(t *testing.T) {
 			},
 			want: "PostV2FooRequest",
 		},
-		"single request with dash in endpoing": {
+		"single request with dash in endpoint": {
 			paths: []_path{
 				{"paths", "/v2/mandate-imports", "POST", "requestBody", "content", "application/json", "schema"},
 			},
@@ -48,8 +47,7 @@ func TestObjectWithPaths_requestSymbol(t *testing.T) {
 	}
 }
 
-func TestObjectWithPaths_responseSymbol(t *testing.T) {
-	// .paths.*.*.responses.*.content.*.schema	tests := map[string]struct {
+func TestPaths_responseSymbol(t *testing.T) {
 	tests := map[string]struct {
 		paths paths
 		want  string
