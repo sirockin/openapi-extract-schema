@@ -67,10 +67,14 @@ func (ps paths) embeddedArraySymbol() (string, error) {
 	if len(ps) == 0 {
 		return "", fmt.Errorf("no paths found")
 	}
-	if len(ps[0]) <= 1 {
-		return "", fmt.Errorf("path not long enough")
+	path := ps[0]
+	if len(path) < 6 {
+		return "", fmt.Errorf("path too short")
 	}
-	return capitalizeFirst(ps[0][len(ps[0])-2]) + "Item", nil
+	if len(ps) == 1 {
+		return path[len(path)-4] + capitalizeFirst(path[len(path)-2]) + "Item", nil
+	}
+	return "Common" + capitalizeFirst(path[len(path)-2]) + "Item", nil
 }
 
 func (ps paths) requestSymbol() (string, error) {

@@ -122,3 +122,31 @@ func TestPaths_embeddedSymbol(t *testing.T) {
 		})
 	}
 }
+
+func TestPaths_embeddedArraySymbol(t *testing.T) {
+	tests := map[string]struct {
+		paths paths
+		want  string
+	}{
+		"single response": {
+			paths: []_path{
+				{"components", "schemas", "fooBar", "properties", "whizzBang", "items"},
+			},
+			want: "fooBarWhizzBangItem",
+		},
+		"multiple response": {
+			paths: []_path{
+				{"components", "schemas", "fooBar", "properties", "whizzBang", "items"},
+				{"components", "schemas", "pingPong", "properties", "whizzBang", "items"},
+			},
+			want: "CommonWhizzBangItem",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := tt.paths.embeddedArraySymbol()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
