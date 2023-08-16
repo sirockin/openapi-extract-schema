@@ -53,10 +53,14 @@ func (ps paths) embeddedSymbol() (string, error) {
 	if len(ps) == 0 {
 		return "", fmt.Errorf("no paths found")
 	}
-	if len(ps[0]) == 0 {
-		return "", fmt.Errorf("empty path")
+	path := ps[0]
+	if len(path) < 5 {
+		return "", fmt.Errorf("path too short")
 	}
-	return capitalizeFirst(ps[0][len(ps[0])-1]), nil
+	if len(ps) == 1 {
+		return path[len(path)-3] + capitalizeFirst(path[len(path)-1]), nil
+	}
+	return "Common" + capitalizeFirst(path[len(path)-1]), nil
 }
 
 func (ps paths) embeddedArraySymbol() (string, error) {
