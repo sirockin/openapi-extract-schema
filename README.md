@@ -1,62 +1,45 @@
 # openapi-extract-schema
 
-go run . ./example/spec.yaml ./out/spec.yaml
+## Overview
 
+A tool for ensuring that all schemas contained in an openapi version 3.x definition are individually specified under the `components.schemas` property.
 
-## Proposed Naming Rules
+This ensures that code generation tools such as https://github.com/deepmap/oapi-codegen can generate all entities with named structs.
 
-### Root schemas
+Usage:
 
-Unique request body: `{verb}{Endpoint}Request` eg 
-    - `postV2FooRequest`
-Unique response body: `{verb}{Endpoint}{StatusCode}Response` eg:
-    - `postV2Foo200Response`
-RequestBody shared between more than one verb on same endpoint:
-    - `{common}{Endpoint}Request[{n}]` eg:
-      - `commonV2FooRequest`
-      - `commonV2FooRequest1` (if more than one common request) 
-  
-ResponseBody shared between more than one verb on same endpoint:
-    -  `{common}{Endpoint}{StatusCode}Response[{n}]` eg:
-       - `commonV2Foo200Response`
-       - `commonV2Foo200Response1` (if more than one common request with this name) 
-RequestBody shared between more than one endpoint:
-    - {common}Request{n}
-Response body shared between more than one endpont:
-    - `{common}{StatusCode}Response{n}` eg:
-      - common401Response1
-Response body shared between more than status code on same endpoint:
-    - If has same prefix:
-        - commonV2Foo2xxResponse
-        - commonV2Foo4xxResponse
-    - If different prefixes but none are 2:
-      - commonV2FooErrorResponse(n)
-Response body shared between more than one status code on different endpoints:
-    - as above but remove path
+`go run . <input-path> <output-path>`
 
+## Operation
 
-So general form is:
+The tool does the following:
+1. Searches `paths.{endpoint}.{verb}.requestBody.content.{content-type}.schema` and moves inline definitions to `components.schemas`
+1. Searches `paths.{endpoint}.{verb}.responses.{statusCode}.content.{content-type}.schema` and moves inline definitions to `components.schemas`
+2. Repeatedly (until no more found):
+   1.  searches `components.schemas.{name}.properties.{name}.[?(@type=='object')]` and moves inline definitions to schemas
+   1.  searches `components.schemas.{name}.properties.{name}.items[?(@type=='object')]` and moves inline definitions to schemas
 
-- Request: {verb}{Endpoint}{Request}
-- Response: {verb}{Endpoint}{StatusCode}{Response}
+Where schemas are identical, a single symbol and definition is used.
 
-If more than one name shares schema:
-- prefix with 'common'
-- remove verb if different across usages
-- remove endpoint if different across usages
-- if StatusCode different across usages
-  - if 2xx and not 2xx, remove StatusCode
-  - If more than one non-2xx replace StatusCode with 'Error'
-  - If status codes have identical prefix (eg 200, 201) replace with `2x`
-- if more than one of same name exist, suffix with `n`
+## Naming Rules
 
-### Other Schemas
-Just use Member name with suffix
+See `./internal/path_test.go` but in summary:
 
-Algorithm:
+1. For a Request body, if the schema is:
+   1. unique: `{Verb}{Path}Request`
+   2. used for one path but multiple verbs: `Common{Path}Request` 
+   3. used for one verb but multiple paths `Common{Verb}Request`
+2. For a Response body, if the schema is:
+   1. unique: `{Verb}{Path}{StatusCode}Response`
+   2. used for one path and status code but multiple verbs: `Common{Path}{StatusCode}Request` 
+   3. used for one verb and status code but multiple verbs `Common{Verb}{StatusCode}Request`
+   4. if status codes have same prefix `{StatusCode}` is given as `{prefix}xx`
+   5. if status codes with different prefixes, `{StatusCode}` is omitted
+3. For an embedded schema if the schema is:
+   1. unique: `{ContainingObject}{PropertyName}`
+   2. duplicated `Common{PropertyNameOfFirstUse}`
+3. For an embedded array schema if the schema is:
+   1. unique: `{ContainingObject}{PropertyName}Item`
+   2. duplicated `Common{PropertyNameOfFirstUse}Item`
 
-1. Repeatedly:
-   1. Look in components/schemas/ for type: object and array/object at first level
-   2. For each object found:
-      1. call GroupObjects
-      2. If it already exists in schemas, add that reference (we may want to backfill our request/response implementation to do this too)3. If not create the new reference 
+In any of the above cases, if the chosen name already exists, an index suffix is added.
