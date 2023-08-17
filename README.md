@@ -8,7 +8,7 @@ This ensures that code generation tools such as https://github.com/deepmap/oapi-
 
 Usage:
 
-`go run . <input-path> <output-path>`
+`go run ./cmd/openapi-extract-schema/openapi-extract-schema.go <input-path> <output-path>`
 
 ## Operation
 
