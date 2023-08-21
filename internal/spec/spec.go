@@ -35,12 +35,12 @@ func (s Spec) ToYaml(writer io.Writer) error {
 }
 
 func (s Spec) Transform() Spec {
-	requests := s.findStringPath(requestSearchPath)
+	requests := removeRefs(s.findStringPath(requestSearchPath))
 	groupedRequests := groupObjects(requests)
-	responses := s.findStringPath(responseSearchPath)
+	responses := removeRefs(s.findStringPath(responseSearchPath))
 	groupedResponses := groupObjects(responses)
-	fmt.Printf("Found %d request schema in %d groups\n", len(requests), len(groupedRequests))
-	fmt.Printf("Found %d response schema in %d groups\n", len(responses), len(groupedResponses))
+	fmt.Printf("Found %d embedded request schema in %d groups\n", len(requests), len(groupedRequests))
+	fmt.Printf("Found %d embedded response schema in %d groups\n", len(responses), len(groupedResponses))
 
 	for _, val := range groupedRequests {
 		symbol := s.findMatchingSchema(val.object)
@@ -71,13 +71,15 @@ func (s Spec) Transform() Spec {
 	}
 
 	// We need to do this iteratively since there may be more than one level of embedded object
-	for {
+	fmt.Printf("Checking components.schemas for embedded schemas:\n")
+	for i:=1;;i++{
+		fmt.Printf("\tIteration %d:\n", i)
 		embeddedObjects := s.findStringPath(embeddedObjectSearchPath)
 		groupedEmbeddedObjects := groupObjects(embeddedObjects)
 		embeddedArrayObjects := s.findStringPath(embeddedArrayObjectSearchPath)
 		groupedEmbeddedArrayObjects := groupObjects(embeddedArrayObjects)
-		fmt.Printf("Found %d embedded objects in %d groups\n", len(embeddedObjects), len(groupedEmbeddedObjects))
-		fmt.Printf("Found %d embedded array objects in %d groups\n", len(embeddedArrayObjects), len(groupedEmbeddedArrayObjects))
+		fmt.Printf("\t\tFound %d embedded objects in %d groups\n", len(embeddedObjects), len(groupedEmbeddedObjects))
+		fmt.Printf("\t\tFound %d embedded array objects in %d groups\n", len(embeddedArrayObjects), len(groupedEmbeddedArrayObjects))
 		if len(embeddedObjects) == 0 && len(embeddedArrayObjects) == 0 {
 			break
 		}
@@ -124,6 +126,23 @@ func (s Spec) uniqueSymbol(symbol string) string {
 func (s Spec) symbolExists(symbol string) bool {
 	_, exists := s.schemasNode()[symbol]
 	return exists
+}
+
+func removeRefs(in []objectWithPath) []objectWithPath {
+	return filter(in, func(o objectWithPath) bool { 
+		_, remove := o.object["$ref"]
+		return !remove
+	})
+}
+
+func filter[T any](slice []T, f func(T) bool) []T {
+    var n []T
+    for _, e := range slice {
+        if f(e) {
+            n = append(n, e)
+        }
+    }
+    return n
 }
 
 func (s Spec) findStringPath(path string) []objectWithPath {
